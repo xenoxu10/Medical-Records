@@ -2,8 +2,8 @@
 pragma solidity ^0.7.0;
 
 
-import "./Shared.sol";
-import "./Regulatory.sol";
+import "./shared.sol";
+import "./RegulatorAgency.sol";
 
 contract Controller {
     // State variables
@@ -55,11 +55,7 @@ contract Controller {
     function addOracle() public onlyNotRegistered notOwner {
         require(OracleId[msg.sender]!=0,"generate oracle id");
        oracles[OracleId[msg.sender]].registered = true;
-       oracles[OracleId[msg.sender]].averageContractRating = 50;
-       oracles[OracleId[msg.sender]].contractRatingCount = 0;
-       oracles[OracleId[msg.sender]].averageDoctorRating = 50;
-       oracles[OracleId[msg.sender]].doctorRatingCount = 0;
-        
+      
         //oracles[msg.sender] = oracle;
     }
     
@@ -75,27 +71,7 @@ contract Controller {
    
     
     // TODO: maybe add a modifier
-    function getOracleReputations(uint oracle) view public returns (uint16) {
-        Shared.Oracle storage oraclestorage = oracles[oracle];
-        uint16 reputations;
-
-        // NOTE: we are assuming oracleAddresses 
-       
-            
-            
-        reputations = (oraclestorage.averageContractRating + oraclestorage.averageDoctorRating) / 2;
-        
-        return reputations;
-    }
-    
-    function submitContractOracleRatings( uint16 _ratings,uint _id) external onlyNotRegistered {
-         Shared.Oracle storage neworacle = oracles[_id];
-       
-             
-           neworacle.averageContractRating = (neworacle.contractRatingCount *neworacle.averageContractRating + _ratings) / (neworacle.contractRatingCount + 1);
-            neworacle.contractRatingCount += 1;
-    }
-    
+   
    
     
     function submitOracleToken( bytes32 _tokenID, address _doctorAddress,uint _id) external onlyNotRegistered {
