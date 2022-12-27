@@ -1,8 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
-import "./Shared.sol";
-import "./MyController.sol";
-import "./Regulatory.sol";
+import "./shared.sol";
+import "./myController.sol";
+import "./RegulatorAgency.sol";
 contract PatientRecords{
     mapping(uint=> Shared.Record) public recordNum;
     mapping(uint=> Shared.Request) public requestNum;
@@ -40,19 +40,21 @@ contract PatientRecords{
     
          Shared.Record storage record = recordNum[Regulator.returnPatientId(msg.sender)];
         record.bundleHashes=_bundleHash;
+        record.status=true;
         
     }
 
 
 
-    function requestRecord(  ) public onlyDoctor
+    function requestRecord(uint Pid) public onlyDoctor
 
      {
+         require(recordNum[Pid].status,"record not found");
         
        
-        Shared.Request storage request= requestNum[Regulator.returnDoctorId(msg.sender)];
+        Shared.Request storage request= requestNum[Pid];
         request.doctor=msg.sender;  
-        request.requestTime = block.timestamp;
+       
       
         request.grant = false;
         request.oraclesEvaluated = false;
@@ -61,8 +63,9 @@ contract PatientRecords{
         
     }
 
-     function respondRequest(uint _DocId, bool _grant) public onlyPatient  {
-         requestNum[_DocId].grant = _grant;
+     function respondRequest(uint Pid,uint _DocId, bool _grant) public onlyPatient  {
+         requestNum[Pid].grant = _grant;
+         requestNum[Pid].requestTime = block.timestamp;
         if (_grant) {
             //emit requestRespondedOracles();
         
@@ -72,35 +75,21 @@ contract PatientRecords{
 
        
     function addOracleResponse( uint _DocId, bytes32 _bundleHash,uint256 Patientid,uint oracleId) public onlyOracle {
-        Shared.Request storage request = requestNum[_DocId];
+        Shared.Request storage request = requestNum[Patientid];
         require(recordNum[Patientid].bundleHashes == _bundleHash ,"record not found");
         require(request.grant, "Granted request required");
         require(!request.oraclesEvaluated, "Unevaluated request required");
-        uint16 oracleRating;
+        
         uint16 latency = (uint16)(block.timestamp - request.requestTime);
-        
-        if (latency <= 1 hours) {
-                
-            
-                
-            // TODO LATER: this should not be bundle hash but rather ks_kPp#
-            uint16 input_start = 1;
-            uint16 input_end = 3600;
-            uint16 output_start = 2**16 - 1;
-            uint16 output_end = 1;
-
-            // TODO: make sure this is working correctly
-             oracleRating *= output_start + ((output_end - output_start) / (input_end - input_start)) * (latency - input_start);
-            request.oracleAddresses=msg.sender;
-            request.oracleRatings[msg.sender] = oracleRating;
-            
-        
+        request.oracleAddresses=msg.sender;
        
-           evaluateOracles( _DocId,oracleId);
+        
+        if (latency <= 1 hours) {       
+           evaluateOracles( _DocId,oracleId,Patientid);
        }
        
         else{
-            oracleRating = 0;
+            request.oraclesEvaluated=false; 
         }
 
     
@@ -116,36 +105,17 @@ contract PatientRecords{
     
     event tokenCreatedDoctor(bytes32 tokenID, address oracleAddress); // oracle info
     event tokenCreatedOracle(bytes32 tokenID, address doctorAddress); // doctor info
-    function evaluateOracles( uint _DocId,uint Oracleid) internal {
+    function evaluateOracles( uint _DocId,uint Oracleid,uint PatientID) internal {
     
         
-        Shared.Request storage request = requestNum[_DocId];
+        Shared.Request storage request = requestNum[PatientID];
         
-        uint16 reputations = controller.getOracleReputations(Oracleid);
-        uint16 ratings;
+        bytes32 tokenID = keccak256(abi.encodePacked(request.doctor,request.oracleAddresses, block.timestamp));
         
-        address OracleAddress= request.oracleAddresses;
-      
-        
-      
-            uint16 oracleRating = request.oracleRatings[request.oracleAddresses];
-            uint16 oracleReputation = reputations;
-            
-            uint16 oracleScore = oracleRating * (oracleReputation + 1)**2;
-            
-         
-            
-            ratings= oracleRating;
-        
-        
-        controller.submitContractOracleRatings(ratings, Oracleid);
-        
-        bytes32 tokenID = keccak256(abi.encodePacked(request.doctor, OracleAddress, block.timestamp));
-        
-        emit tokenCreatedDoctor(tokenID, OracleAddress);
+        emit tokenCreatedDoctor(tokenID, request.oracleAddresses);
         emit tokenCreatedOracle(tokenID, request.doctor);
 
-        Regulator.submitDoctorToken(tokenID,OracleAddress,_DocId);
+        Regulator.submitDoctorToken(tokenID,request.oracleAddresses,_DocId);
         controller.submitOracleToken(tokenID, request.doctor,Oracleid);
         request.oraclesEvaluated=true;        
     }
