@@ -6,6 +6,7 @@ library Shared {
     
     struct Record {
         bytes32 bundleHashes;  // Access rules
+        bool status;
        
         // TODO: uint bundleSize; // Can be requested from IPFS through oracles to measure throughput instead of latency
     }
@@ -19,7 +20,7 @@ library Shared {
         
         bool oraclesEvaluated;
         address oracleAddresses;
-        mapping (address => uint16) oracleRatings;
+       
     }
     
     struct Patient {
@@ -43,11 +44,7 @@ library Shared {
     struct Oracle {
         bool registered;
         
-        uint16 averageContractRating;
-        uint16 contractRatingCount;
-        
-        uint16 averageDoctorRating;
-        uint16 doctorRatingCount;
+       
         
         bytes32[] tokenIDs;
         mapping (bytes32 => OracleToken) tokens;
